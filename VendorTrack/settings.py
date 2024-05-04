@@ -80,11 +80,9 @@ WSGI_APPLICATION = 'VendorTrack.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'your_database_name',
-        'USER': 'your_username',
-        'PASSWORD': 'your_password',
-        'HOST': 'your_host',
-        'PORT': 'your_port',
+        'NAME': 'VentorTrack',
+        'USER': 'ventorAdmin',
+        'PASSWORD': 'ventorTrack',
     }
 }
 

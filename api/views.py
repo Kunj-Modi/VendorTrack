@@ -5,6 +5,7 @@ from rest_framework import status
 from .models import *
 from .serializers import *
 
+
 class Vendors(generics.GenericAPIView):
     queryset = Vendor.objects.all()
     serializer_class = VendorSerializer
@@ -26,6 +27,7 @@ Vendors = Vendors.as_view()
 class VendorID(generics.GenericAPIView):
     queryset = Vendor.objects.all()
     serializer_class = VendorDetailSerializer
+    lookup_field = 'vendor_code'
 
     def get(self, request, *args, **kwargs):
         vendor = self.get_object()
@@ -71,6 +73,7 @@ PurchaseOrders = PurchaseOrders.as_view()
 class PurchaseOrderID(generics.GenericAPIView):
     queryset = PurchaseOrder.objects.all()
     serializer_class = PurchaseOrderDetailSerializer
+    lookup_field = 'po_number'
 
     def get(self, request, *args, **kwargs):
         purchase_order = self.get_object()
@@ -108,6 +111,7 @@ VendorPerformance = VendorPerformance.as_view()
 class AcknowledgePurchaseOrder(generics.UpdateAPIView):
     queryset = PurchaseOrder.objects.all()
     serializer_class = AcknowledgePurchaseOrderSerializer
+    lookup_field = 'po_number'
 
     def update(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -119,6 +123,5 @@ class AcknowledgePurchaseOrder(generics.UpdateAPIView):
         instance.recalculate_average_response_time()
 
         return Response(serializer.data)
-    
 
 AcknowledgePurchaseOrder = AcknowledgePurchaseOrder.as_view()

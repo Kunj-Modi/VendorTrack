@@ -21,13 +21,13 @@ metrics.
 '''
 
 urlpatterns = [
-    path('vendors/<int:vendor_id>/performance', VendorPerformance, name='vendor_performance'),  # get
+    path('vendors/<str:vendor_code>/performance', VendorPerformance, name='vendor_performance'),  # get
 
-    path('vendors/<int:vendor_id>/', VendorID, name='vendor_detail'),  # get, put, and delete
+    path('vendors/<str:vendor_code>/', VendorID, name='vendor_detail'),  # get, put, and delete
     path('vendors/', Vendors, name='vendor_list'),  # get all and post new
 
-    path('api/purchase_orders/<int:po_id>/acknowledge/', AcknowledgePurchaseOrder, name='acknowledge_purchase_order'),  # update
+    path('purchase_orders/<str:po_number>/acknowledge/', AcknowledgePurchaseOrder, name='acknowledge_purchase_order'),  # update
 
-    path('purchase_orders/<int:po_id>/', PurchaseOrderID, name='purchase_order_detail'),  # get, put, and delete
+    path('purchase_orders/<str:po_number>/', PurchaseOrderID, name='purchase_order_detail'),  # get, put, and delete
     path('purchase_orders/', PurchaseOrders, name='purchase_order_list'),  # get all and post new
 ]
