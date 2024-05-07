@@ -1,5 +1,10 @@
-from django.db import models
+from django.utils import timezone
 
+from django.db import models
+from django.db.models import Sum, Avg, F
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Vendor(models.Model):
     """
@@ -8,10 +13,8 @@ class Vendor(models.Model):
     ● contact_details: TextField - Contact information of the vendor.
     ● address: TextField - Physical address of the vendor.
     ● on_time_delivery_rate: FloatField - Tracks the percentage of on-time deliveries.
-    ● quality_rating_avg: FloatField - Average rating of quality based on purchase
-    orders.
-    ● average_response_time: FloatField - Average time taken to acknowledge
-    purchase orders.
+    ● quality_rating_avg: FloatField - Average rating of quality based on purchase orders.
+    ● average_response_time: FloatField - Average time taken to acknowledge purchase orders.
     ● fulfillment_rate: FloatField - Percentage of purchase orders fulfilled successfully.
     """
     vendor_code = models.CharField(max_length=50, primary_key=True)
@@ -38,19 +41,92 @@ class PurchaseOrder(models.Model):
     ● status: CharField - Current status of the PO (e.g., pending, completed, canceled).
     ● quality_rating: FloatField - Rating given to the vendor for this PO (nullable).
     ● issue_date: DateTimeField - Timestamp when the PO was issued to the vendor.
-    ● acknowledgment_date: DateTimeField, nullable - Timestamp when the vendor
-    acknowledged the PO.
+    ● acknowledgment_date: DateTimeField, nullable - Timestamp when the vendor acknowledged the PO.
     """
+    status_choices = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('canceled', 'Canceled'),
+    ]
+
     po_number = models.CharField(max_length=100, primary_key=True)
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
     order_date = models.DateTimeField()
     delivery_date = models.DateTimeField()
     items = models.JSONField()
     quantity = models.IntegerField()
-    status = models.CharField(max_length=50)
+    status = models.CharField(max_length=50, choices=status_choices, default='pending')
     quality_rating = models.FloatField(null=True, blank=True)
     issue_date = models.DateTimeField()
     acknowledgment_date = models.DateTimeField(null=True, blank=True)
+
+    def calculate_on_time_delivery_rate(self):
+        completed_orders_count = PurchaseOrder.objects.filter(
+            vendor=self.vendor,
+            status='completed',
+            delivery_date__lte=F('acknowledgment_date')
+        ).count()
+
+        total_completed_orders = PurchaseOrder.objects.filter(
+            vendor=self.vendor,
+            status='completed'
+        ).count()
+
+        if total_completed_orders > 0:
+            on_time_delivery_rate = (completed_orders_count / total_completed_orders) * 100
+        else:
+            on_time_delivery_rate = 0
+        
+        return on_time_delivery_rate
+    
+    def calculate_quality_rating_average(self):
+        completed_orders = PurchaseOrder.objects.filter(
+            vendor=self.vendor,
+            status='completed',
+            quality_rating__isnull=False
+        )
+
+        total_ratings = completed_orders.count()
+        if total_ratings > 0:
+            quality_rating_sum = completed_orders.aggregate(Sum('quality_rating'))['quality_rating__sum']
+            quality_rating_average = quality_rating_sum / total_ratings
+        else:
+            quality_rating_average = 0
+        
+        return quality_rating_average
+
+    def calculate_average_response_time(self):
+        completed_orders = PurchaseOrder.objects.filter(
+            vendor=self.vendor,
+            status='completed',
+            acknowledgment_date__isnull=False
+        )
+
+        average_response_time = completed_orders.aggregate(
+            Avg(F('acknowledgment_date') - F('issue_date'))
+        )['acknowledgment_date__avg']
+
+        return average_response_time
+    
+    def calculate_fulfillment_rate(self):
+        successful_orders_count = PurchaseOrder.objects.filter(
+            vendor=self.vendor,
+            status='completed',
+            quality_rating__isnull=False,
+            acknowledgment_date__isnull=False
+        ).count()
+
+        total_orders = PurchaseOrder.objects.filter(
+            vendor=self.vendor,
+            status='completed'
+        ).count()
+
+        if total_orders > 0:
+            fulfillment_rate = (successful_orders_count / total_orders) * 100
+        else:
+            fulfillment_rate = 0
+        
+        return fulfillment_rate
 
     def __str__(self):
         return self.po_number
@@ -62,8 +138,7 @@ class HistoricalPerformance(models.Model):
     ● date: DateTimeField - Date of the performance record.
     ● on_time_delivery_rate: FloatField - Historical record of the on-time delivery rate.
     ● quality_rating_avg: FloatField - Historical record of the quality rating average.
-    ● average_response_time: FloatField - Historical record of the average response
-    time.
+    ● average_response_time: FloatField - Historical record of the average response time.
     ● fulfillment_rate: FloatField - Historical record of the fulfilment rate.
     """
     vendor = models.ForeignKey(Vendor, on_delete=models.CASCADE)
@@ -75,3 +150,24 @@ class HistoricalPerformance(models.Model):
 
     def __str__(self):
         return f"{self.vendor} - {self.date}"
+
+
+@receiver(post_save, sender=PurchaseOrder)
+def update_performance_metrics(sender, instance, **kwargs):
+    vendor = instance.vendor
+    vendor.on_time_delivery_rate = vendor.calculate_on_time_delivery_rate()
+    vendor.quality_rating_avg = vendor.calculate_quality_rating_average()
+    vendor.average_response_time = vendor.calculate_average_response_time()
+    vendor.fulfillment_rate = vendor.calculate_fulfillment_rate()
+    vendor.save()
+
+    # Update HistoricalPerformance metrics
+    historical_performance, created = HistoricalPerformance.objects.get_or_create(
+        vendor=vendor,
+    )
+    historical_performance.date = timezone.now()  # Save current datetime
+    historical_performance.on_time_delivery_rate = vendor.on_time_delivery_rate
+    historical_performance.quality_rating_avg = vendor.quality_rating_avg
+    historical_performance.average_response_time = vendor.average_response_time
+    historical_performance.fulfillment_rate = vendor.fulfillment_rate
+    historical_performance.save()

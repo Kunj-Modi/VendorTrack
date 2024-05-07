@@ -30,12 +30,6 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         fields = ['po_number', 'vendor', 'order_date', 'delivery_date', 'items', 'quantity', 'status', 'quality_rating', 'issue_date', 'acknowledgment_date']
         read_only_fields = ['status', 'quality_rating', 'acknowledgment_date']
 
-    def create(self, validated_data):
-        # Set default values for fields not provided by the user
-        validated_data.setdefault('status', 'pending')
-
-        return PurchaseOrder.objects.create(**validated_data)
-
 
 class PurchaseOrderDetailSerializer(serializers.ModelSerializer):
     class Meta:

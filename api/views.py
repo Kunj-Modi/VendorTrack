@@ -119,9 +119,6 @@ class AcknowledgePurchaseOrder(generics.UpdateAPIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # Trigger recalculation of average_response_time
-        instance.recalculate_average_response_time()
-
         return Response(serializer.data)
 
 AcknowledgePurchaseOrder = AcknowledgePurchaseOrder.as_view()
