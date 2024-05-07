@@ -102,12 +102,22 @@ class PurchaseOrder(models.Model):
             acknowledgment_date__isnull=False
         )
 
-        average_response_time = completed_orders.aggregate(
-            Avg(F('acknowledgment_date') - F('issue_date'))
-        )['acknowledgment_date__avg']
+        average_response_time_result = completed_orders.aggregate(
+            avg_response_time=Avg(F('acknowledgment_date') - F('issue_date'))
+        )
+        average_response_timedelta = average_response_time_result.get('avg_response_time')
+
+        # Convert timedelta to seconds
+        if average_response_timedelta:
+            average_response_seconds = average_response_timedelta.total_seconds()
+
+            # Convert seconds to desired unit for average response time (e.g., minutes)
+            average_response_time = average_response_seconds / 60  # Assuming you want the result in minutes
+        else:
+            average_response_time = 0
 
         return average_response_time
-    
+
     def calculate_fulfillment_rate(self):
         successful_orders_count = PurchaseOrder.objects.filter(
             vendor=self.vendor,
@@ -155,19 +165,27 @@ class HistoricalPerformance(models.Model):
 @receiver(post_save, sender=PurchaseOrder)
 def update_performance_metrics(sender, instance, **kwargs):
     vendor = instance.vendor
-    vendor.on_time_delivery_rate = vendor.calculate_on_time_delivery_rate()
-    vendor.quality_rating_avg = vendor.calculate_quality_rating_average()
-    vendor.average_response_time = vendor.calculate_average_response_time()
-    vendor.fulfillment_rate = vendor.calculate_fulfillment_rate()
+    vendor.on_time_delivery_rate = instance.calculate_on_time_delivery_rate()
+    vendor.quality_rating_avg = instance.calculate_quality_rating_average()
+    vendor.average_response_time = instance.calculate_average_response_time()
+    vendor.fulfillment_rate = instance.calculate_fulfillment_rate()
     vendor.save()
 
     # Update HistoricalPerformance metrics
     historical_performance, created = HistoricalPerformance.objects.get_or_create(
         vendor=vendor,
+        defaults={
+            'date': timezone.now(),
+            'on_time_delivery_rate': vendor.on_time_delivery_rate,
+            'quality_rating_avg': vendor.quality_rating_avg,
+            'average_response_time': vendor.average_response_time,
+            'fulfillment_rate': vendor.fulfillment_rate,
+        }
     )
-    historical_performance.date = timezone.now()  # Save current datetime
-    historical_performance.on_time_delivery_rate = vendor.on_time_delivery_rate
-    historical_performance.quality_rating_avg = vendor.quality_rating_avg
-    historical_performance.average_response_time = vendor.average_response_time
-    historical_performance.fulfillment_rate = vendor.fulfillment_rate
+    if not created:
+        historical_performance.date = timezone.now()
+        historical_performance.on_time_delivery_rate = vendor.on_time_delivery_rate
+        historical_performance.quality_rating_avg = vendor.quality_rating_avg
+        historical_performance.average_response_time = vendor.average_response_time
+        historical_performance.fulfillment_rate = vendor.fulfillment_rate
     historical_performance.save()

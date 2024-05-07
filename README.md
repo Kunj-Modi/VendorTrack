@@ -176,6 +176,12 @@ python manage.py runserver
    Fields required:
     * acknowledgment_date: DateTimeField, nullable - Timestamp when the vendor acknowledged the PO.
 
+## Testing
+
+Explore our API endpoints using Postman:
+[![Run in Postman](https://run.pstmn.io/button.svg)](https://www.postman.com/lunar-module-architect-59990395/workspace/vendortrack)
+
+
 ## License
 
 This libary is [licensed](LICENSE) under the [MIT Licence](https://en.wikipedia.org/wiki/MIT_License).

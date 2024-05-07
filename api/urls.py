@@ -21,7 +21,7 @@ from .views import *
 '''
 
 urlpatterns = [
-    path('vendors/<str:vendor_code>/performance', VendorPerformance, name='vendor_performance'),  # get
+    path('vendors/<str:vendor_code>/performance/', VendorPerformance, name='vendor_performance'),  # get
 
     path('vendors/<str:vendor_code>/', VendorID, name='vendor_detail'),  # get, put, and delete
     path('vendors/', Vendors, name='vendor_list'),  # get all and post new
